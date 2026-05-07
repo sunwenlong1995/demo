@@ -1,9 +1,9 @@
-import express from 'express'
-import path from 'path'
-import fs from 'fs'
+const http = require('http')
+const url = require('url')
+const fs = require('fs')
+const path = require('path')
 
-const app = express()
-const DATA_FILE = path.join(process.cwd(), 'data.json')
+const DATA_FILE = path.join(__dirname, '../data.json')
 
 const initData = () => {
   if (!fs.existsSync(DATA_FILE)) {
@@ -30,73 +30,175 @@ const writeData = (data) => {
 
 initData()
 
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+const mimeTypes = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon'
+}
 
-app.get('/api/items', (req, res) => {
-  const page = parseInt(req.query.page) || 1
-  const limit = parseInt(req.query.limit) || 10
-  const skip = (page - 1) * limit
-  
-  const data = readData()
-  const total = data.items.length
-  const items = [...data.items].reverse().slice(skip, skip + limit)
-  
-  res.json({ items, total, page, limit })
-})
+const handleApiRequest = (req, res, parsedUrl) => {
+  res.setHeader('Content-Type', 'application/json')
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
-app.get('/api/items/:id', (req, res) => {
-  const data = readData()
-  const item = data.items.find(item => item.id === parseInt(req.params.id))
-  if (!item) return res.status(404).json({ error: 'Item not found' })
-  res.json(item)
-})
-
-app.post('/api/items', (req, res) => {
-  const data = readData()
-  const newItem = {
-    id: data.nextId++,
-    ...req.body,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200)
+    res.end()
+    return
   }
-  data.items.push(newItem)
-  writeData(data)
-  res.json(newItem)
-})
 
-app.put('/api/items/:id', (req, res) => {
-  const data = readData()
-  const index = data.items.findIndex(item => item.id === parseInt(req.params.id))
-  if (index === -1) return res.status(404).json({ error: 'Item not found' })
-  
-  data.items[index] = {
-    ...data.items[index],
-    ...req.body,
-    updatedAt: new Date().toISOString()
+  const pathname = parsedUrl.pathname
+  const query = parsedUrl.query
+
+  if (req.method === 'GET' && pathname === '/api/items') {
+    const page = parseInt(query?.page) || 1
+    const limit = parseInt(query?.limit) || 10
+    const skip = (page - 1) * limit
+    
+    const data = readData()
+    const total = data.items.length
+    const items = [...data.items].reverse().slice(skip, skip + limit)
+    
+    res.writeHead(200)
+    res.end(JSON.stringify({ items, total, page, limit }))
+    return
   }
-  writeData(data)
-  res.json(data.items[index])
-})
 
-app.delete('/api/items/:id', (req, res) => {
-  const data = readData()
-  data.items = data.items.filter(item => item.id !== parseInt(req.params.id))
-  writeData(data)
-  res.json({ success: true })
-})
+  if (req.method === 'GET' && pathname.match(/^\/api\/items\/(\d+)$/)) {
+    const id = parseInt(pathname.split('/')[3])
+    const data = readData()
+    const item = data.items.find(item => item.id === id)
+    if (!item) {
+      res.writeHead(404)
+      res.end(JSON.stringify({ error: 'Item not found' }))
+      return
+    }
+    res.writeHead(200)
+    res.end(JSON.stringify(item))
+    return
+  }
 
-app.post('/api/items/batch', (req, res) => {
-  const data = readData()
-  const newItems = req.body.map(item => ({
-    id: data.nextId++,
-    ...item,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }))
-  data.items.push(...newItems)
-  writeData(data)
-  res.json({ count: newItems.length })
-})
+  if (req.method === 'POST' && pathname === '/api/items') {
+    let body = ''
+    req.on('data', chunk => body += chunk)
+    req.on('end', () => {
+      const data = readData()
+      const bodyObj = JSON.parse(body)
+      const newItem = {
+        id: data.nextId++,
+        ...bodyObj,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      data.items.push(newItem)
+      writeData(data)
+      res.writeHead(200)
+      res.end(JSON.stringify(newItem))
+    })
+    return
+  }
 
-export default app
+  if (req.method === 'PUT' && pathname.match(/^\/api\/items\/(\d+)$/)) {
+    const id = parseInt(pathname.split('/')[3])
+    let body = ''
+    req.on('data', chunk => body += chunk)
+    req.on('end', () => {
+      const data = readData()
+      const index = data.items.findIndex(item => item.id === id)
+      if (index === -1) {
+        res.writeHead(404)
+        res.end(JSON.stringify({ error: 'Item not found' }))
+        return
+      }
+      data.items[index] = {
+        ...data.items[index],
+        ...JSON.parse(body),
+        updatedAt: new Date().toISOString()
+      }
+      writeData(data)
+      res.writeHead(200)
+      res.end(JSON.stringify(data.items[index]))
+    })
+    return
+  }
+
+  if (req.method === 'DELETE' && pathname.match(/^\/api\/items\/(\d+)$/)) {
+    const id = parseInt(pathname.split('/')[3])
+    const data = readData()
+    data.items = data.items.filter(item => item.id !== id)
+    writeData(data)
+    res.writeHead(200)
+    res.end(JSON.stringify({ success: true }))
+    return
+  }
+
+  if (req.method === 'POST' && pathname === '/api/items/batch') {
+    let body = ''
+    req.on('data', chunk => body += chunk)
+    req.on('end', () => {
+      const data = readData()
+      const items = JSON.parse(body).map(item => ({
+        id: data.nextId++,
+        ...item,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }))
+      data.items.push(...items)
+      writeData(data)
+      res.writeHead(200)
+      res.end(JSON.stringify({ count: items.length }))
+    })
+    return
+  }
+
+  res.writeHead(404)
+  res.end(JSON.stringify({ error: 'Not found' }))
+}
+
+const handleStaticRequest = (req, res, parsedUrl) => {
+  const pathname = parsedUrl.pathname === '/' ? '/index.html' : parsedUrl.pathname
+  const filePath = path.join(__dirname, '../dist', pathname)
+  
+  const ext = path.extname(filePath)
+  const contentType = mimeTypes[ext] || 'application/octet-stream'
+
+  fs.readFile(filePath, (err, content) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        fs.readFile(path.join(__dirname, '../dist', 'index.html'), (err, content) => {
+          if (err) {
+            res.writeHead(500)
+            res.end('Internal Server Error')
+            return
+          }
+          res.writeHead(200, { 'Content-Type': 'text/html' })
+          res.end(content, 'utf-8')
+        })
+      } else {
+        res.writeHead(500)
+        res.end('Internal Server Error')
+      }
+    } else {
+      res.writeHead(200, { 'Content-Type': contentType })
+      res.end(content, 'utf-8')
+    }
+  })
+}
+
+module.exports = (req, res) => {
+  const parsedUrl = url.parse(req.url, true)
+  const pathname = parsedUrl.pathname
+
+  if (pathname.startsWith('/api')) {
+    handleApiRequest(req, res, parsedUrl)
+  } else {
+    handleStaticRequest(req, res, parsedUrl)
+  }
+}
