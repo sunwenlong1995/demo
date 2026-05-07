@@ -4,7 +4,7 @@
   "description": "前后端一体项目，支持 Vercel 部署",
   "type": "module",
   "scripts": {
-    "dev": "node server/index.js",
+    "dev": "node server/dev.js",
     "build": "npm run build:client",
     "build:client": "vite build",
     "start": "node server/index.js"
