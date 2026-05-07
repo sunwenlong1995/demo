@@ -1,0 +1,22 @@
+{
+  "name": "demo-app",
+  "version": "1.0.0",
+  "description": "前后端一体项目，支持 Vercel 部署",
+  "type": "module",
+  "scripts": {
+    "dev": "node server/index.js",
+    "build": "npm run build:client",
+    "build:client": "vite build",
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "element-plus": "^2.7.2",
+    "express": "^4.19.2",
+    "vue": "^3.4.21",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.10"
+  }
+}
