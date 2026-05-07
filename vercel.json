@@ -1,5 +1,4 @@
 {
-  "buildCommand": "npm run build",
   "devCommand": "node server/dev.js",
   "installCommand": "npm install",
   "functions": {
@@ -8,7 +7,13 @@
     }
   },
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.js" },
-    { "src": "/(.*)", "dest": "/dist/$1" }
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/$1"
+    }
   ]
 }
