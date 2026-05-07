@@ -3,16 +3,23 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-model Item {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(255)
-  email     String   @db.VarChar(255)
-  phone     String   @db.VarChar(50)
-  address   String?  @db.VarChar(500)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Shipment {
+  id              String    @id @default(cuid())
+  externalCode    String?   @unique(map: "external_code_unique")
+  senderName      String
+  senderPhone     String
+  senderAddress   String
+  receiverName    String
+  receiverPhone   String
+  receiverAddress String
+  weight          Float
+  quantity        Int
+  temperature     String
+  remark          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
