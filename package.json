@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server/dev.js",
     "build": "npm run build:client",
-    "build:client": "npx vite build",
+    "build:client": "npx --yes vite build",
     "start": "node server/index.js"
   },
   "dependencies": {
